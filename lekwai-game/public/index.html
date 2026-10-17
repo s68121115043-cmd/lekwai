@@ -1,0 +1,918 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>เกมเลขไว</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mali:wght@500;700&family=Sarabun:wght@400;600;700&display=swap">
+<style>
+/* Layout: one centered column, one screen at a time, over a drifting backdrop of numerals */
+:root{
+  color-scheme:light;
+  --bg:#E9F0F8; --surface:#FFFFFF; --ink:#13263F; --muted:#586A82; --line:#CBD8E8;
+  --accent:#2457F5; --accent-ink:#FFFFFF; --accent-deep:#173FAE;
+  --sun:#FFC93C; --sun-ink:#3A2A00; --sun-deep:#C99400;
+  --good:#0F8F63; --good-bg:#D7F3E6; --bad:#CF3347; --bad-bg:#FBDDE1;
+  --thai:#7A3FD1; --arab-bg:#DDE8FF;
+  --font-display:"Mali","Sarabun",ui-rounded,system-ui,sans-serif;
+  --font-body:"Sarabun",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0C1626; --surface:#15233A; --ink:#E7EEF8; --muted:#9AAAC0; --line:#26395A;
+    --accent:#6F9BFF; --accent-ink:#0C1626; --accent-deep:#3F63C4;
+    --sun:#FFCF4D; --sun-ink:#2E2100; --sun-deep:#B88A12;
+    --good:#4FD6A0; --good-bg:#12392F; --bad:#FF7A8A; --bad-bg:#4A1D27;
+    --thai:#C3A2FF; --arab-bg:#1B3463; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0C1626; --surface:#15233A; --ink:#E7EEF8; --muted:#9AAAC0; --line:#26395A;
+  --accent:#6F9BFF; --accent-ink:#0C1626; --accent-deep:#3F63C4;
+  --sun:#FFCF4D; --sun-ink:#2E2100; --sun-deep:#B88A12;
+  --good:#4FD6A0; --good-bg:#12392F; --bad:#FF7A8A; --bad-bg:#4A1D27;
+  --thai:#C3A2FF; --arab-bg:#1B3463; color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+img{max-width:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:16px;line-height:1.55;
+  padding-inline:16px;padding-block:56px 40px}
+.wrap{position:relative;z-index:1;max-width:540px;margin-inline:auto}
+.screen{display:flex;flex-direction:column;gap:16px;animation:rise .35s ease-out}
+h1,h2,.display{font-family:var(--font-display);text-wrap:balance;margin:0;line-height:1.2}
+h1{font-size:clamp(2.6rem,12vw,3.8rem);font-weight:700}
+h1 .hl{display:inline-block;color:var(--accent);animation:wob 3s ease-in-out infinite}
+h2{font-size:1.35rem;font-weight:700}
+p{margin:0}
+.eyebrow{font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.lead{color:var(--muted);max-width:44ch}
+
+/* backdrop, fx, overlays */
+.bg{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.bg span{position:absolute;bottom:-14vh;font-family:var(--font-display);font-weight:700;color:var(--accent);
+  opacity:.09;animation:drift linear infinite;will-change:transform}
+.bg span.alt{color:var(--sun);opacity:.16}
+#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:60}
+.count{position:fixed;inset:0;z-index:55;display:grid;place-items:center;background:var(--bg)}
+.count span{font-family:var(--font-display);font-weight:700;font-size:clamp(6rem,36vw,12rem);color:var(--accent);
+  animation:zoom .75s ease-out both}
+.tools{position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);right:12px;z-index:40;display:flex;gap:8px}
+.pill{font:inherit;font-size:.85rem;font-weight:600;color:var(--muted);background:var(--surface);
+  border:1px solid var(--line);border-radius:99px;padding:6px 14px;cursor:pointer}
+.pill:hover{color:var(--ink);border-color:var(--accent)}
+.pill[aria-pressed="true"]{color:var(--ink)}
+.popup{position:fixed;z-index:50;pointer-events:none;font-family:var(--font-display);font-weight:700;font-size:1.7rem;
+  white-space:nowrap;animation:floatUp 1s ease-out forwards}
+.popup.good{color:var(--good)}
+.popup.bad{color:var(--bad)}
+.popup.hot{font-size:1.1rem;color:var(--sun-ink);background:var(--sun);padding:2px 14px;border-radius:99px}
+
+/* buttons */
+.btn{font:inherit;font-weight:700;font-size:1.05rem;border:2px solid transparent;border-radius:14px;
+  padding:14px 20px;cursor:pointer;min-height:52px;box-shadow:0 4px 0 var(--btn-deep,transparent);
+  transition:transform .12s,box-shadow .12s}
+.btn:hover{transform:translateY(-2px);box-shadow:0 6px 0 var(--btn-deep,transparent)}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--btn-deep,transparent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);--btn-deep:var(--accent-deep)}
+.btn.sun{background:var(--sun);color:var(--sun-ink);--btn-deep:var(--sun-deep)}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--line);--btn-deep:var(--line)}
+:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.actions{display:flex;flex-direction:column;gap:12px}
+
+/* start */
+.demo{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--line);
+  border-radius:18px;padding:16px 20px;width:fit-content;max-width:100%}
+.demo .eq{font-size:1.8rem;color:var(--muted);font-family:var(--font-display)}
+.mini{width:72px;height:94px;perspective:600px}
+.best{color:var(--muted);font-size:.95rem}
+
+/* cards (shared by demo and board) */
+.inner{position:relative;display:block;width:100%;height:100%;transform-style:preserve-3d}
+.face{position:absolute;inset:0;display:grid;place-items:center;border-radius:14px;backface-visibility:hidden;
+  font-family:var(--font-display);font-weight:700;font-size:clamp(2rem,10vw,3rem)}
+.face.back{background:var(--accent);color:var(--accent-ink);opacity:.92;font-size:1.8rem;border:2px solid var(--accent)}
+.face.front{transform:rotateY(180deg);border:2px solid var(--line);background:var(--arab-bg);color:var(--accent)}
+.mini .face{font-size:2.6rem}
+.mini .inner{animation:flipLoop 5s ease-in-out infinite}
+.mini.b .inner{animation-delay:.7s}
+
+.hud{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px 16px}
+.stat{display:flex;gap:16px;color:var(--muted);font-size:.95rem;font-variant-numeric:tabular-nums}
+.stat b{color:var(--ink)}
+.dots{display:flex;gap:8px}
+.dots span{width:14px;height:14px;border-radius:50%;background:var(--line)}
+.dots span.on{background:var(--good);animation:pop .45s}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.card{font:inherit;border:0;padding:0;background:none;cursor:pointer;aspect-ratio:3/4;perspective:700px;min-width:0;
+  transition:transform .15s}
+.card:not(.open):hover{transform:translateY(-4px)}
+.card .inner{transition:transform .35s}
+.card.open .inner{transform:rotateY(180deg)}
+.card.done .front{border-color:var(--good);box-shadow:0 0 0 2px var(--good)}
+.card.done{cursor:default;animation:pop .5s}
+.card.shake{animation:shake .4s}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:12px}
+
+/* math */
+.timer{height:12px;background:var(--line);border-radius:99px;overflow:hidden}
+.timer>div{height:100%;background:var(--accent);transform-origin:left}
+.timer.low>div{background:var(--bad);animation:pulse .45s infinite alternate}
+.ticks{display:grid;grid-template-columns:repeat(20,minmax(0,1fr));gap:3px}
+.ticks i{height:6px;border-radius:3px;background:var(--line)}
+.ticks i.cur{background:var(--accent)}
+.ticks i.ok{background:var(--good)}
+.ticks i.no{background:var(--bad)}
+.qrow{display:flex;justify-content:space-between;color:var(--muted);font-variant-numeric:tabular-nums}
+.question{font-family:var(--font-display);font-weight:700;font-size:clamp(2.6rem,15vw,4.2rem);text-align:center;
+  background:var(--surface);border:2px solid var(--line);border-radius:22px;padding:28px 12px;
+  font-variant-numeric:tabular-nums;line-height:1.1}
+.question.enter{animation:qin .3s ease-out}
+.question.good{border-color:var(--good);animation:flash .5s}
+.question.bad{border-color:var(--bad);animation:shake .4s}
+.hot b{background:var(--sun);color:var(--sun-ink);padding:0 .5em;border-radius:99px;animation:pop .5s}
+.choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.choice{font-family:var(--font-display);font-weight:700;font-size:2rem;min-height:84px;border-radius:18px;
+  border:2px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;
+  box-shadow:0 4px 0 var(--line);font-variant-numeric:tabular-nums;animation:rise .3s both;
+  transition:transform .12s,box-shadow .12s,background .12s,border-color .12s}
+.choice:nth-child(2){animation-delay:.05s}
+.choice:nth-child(3){animation-delay:.1s}
+.choice:nth-child(4){animation-delay:.15s}
+.choice:hover:not(:disabled){transform:translateY(-3px);border-color:var(--accent);box-shadow:0 7px 0 var(--accent)}
+.choice:active:not(:disabled){transform:translateY(3px);box-shadow:0 1px 0 var(--accent)}
+.choice .k{display:block;font-family:var(--font-body);font-size:.7rem;font-weight:600;color:var(--muted);letter-spacing:.06em}
+.choice.good{background:var(--good-bg);border-color:var(--good);color:var(--good);box-shadow:0 4px 0 var(--good)}
+.choice.bad{background:var(--bad-bg);border-color:var(--bad);color:var(--bad);box-shadow:0 4px 0 var(--bad)}
+.choice:disabled{cursor:default}
+.fb{min-height:1.6em;text-align:center;font-weight:700}
+.fb.good{color:var(--good)} .fb.bad{color:var(--bad)}
+
+/* result */
+.stars{font-size:3rem;letter-spacing:.15em;line-height:1}
+.star{display:inline-block;animation:starIn .55s cubic-bezier(.3,1.6,.5,1) both}
+.star.on{color:var(--sun)}
+.star.off{color:var(--line)}
+.big{font-family:var(--font-display);font-weight:700;font-size:3.4rem;line-height:1;font-variant-numeric:tabular-nums}
+.rows{display:grid;grid-template-columns:1fr auto;gap:8px 16px;font-variant-numeric:tabular-nums}
+.rows dt{color:var(--muted)} .rows dd{margin:0;font-weight:700;text-align:right}
+
+/* room: join form, leaderboard */
+.who{color:var(--muted);font-weight:600;font-size:.9rem;min-height:1.4em}
+.form{gap:14px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-weight:600;font-size:.9rem}
+.field input{font:inherit;font-size:1.1rem;padding:13px 14px;border-radius:12px;border:2px solid var(--line);
+  background:var(--bg);color:var(--ink);width:100%;min-width:0}
+.field input:focus{border-color:var(--accent)}
+.err{color:var(--bad);font-weight:600;min-height:1.4em}
+.hint{color:var(--muted);font-size:.85rem}
+.rank{font-family:var(--font-display);font-weight:700;font-size:1.25rem;color:var(--accent);text-wrap:balance}
+.board{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.board .row{display:grid;grid-template-columns:2rem minmax(0,1fr) auto;align-items:center;gap:10px;
+  padding:8px 12px;border-radius:12px;background:var(--bg);font-variant-numeric:tabular-nums}
+.board .nm{overflow-wrap:anywhere;font-weight:600}
+.board .pt{font-family:var(--font-display);font-weight:700}
+.board .rk{display:grid;place-items:center;width:2rem;height:2rem;border-radius:50%;background:var(--line);
+  font-weight:700;font-size:.9rem}
+.board .top1 .rk{background:var(--sun);color:var(--sun-ink)}
+.board .top2 .rk,.board .top3 .rk{background:var(--arab-bg);color:var(--accent)}
+.board .row.me{outline:2px solid var(--accent);outline-offset:-2px}
+.board .empty,.board .gap{color:var(--muted);text-align:center;padding:6px}
+.linkbtn{font:inherit;font-size:.85rem;color:var(--muted);background:none;border:0;text-decoration:underline;
+  cursor:pointer;padding:8px;align-self:center}
+.linkbtn:hover{color:var(--ink)}
+.btn.small{min-height:40px;padding:8px 14px;font-size:.9rem;white-space:nowrap}
+.roomlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.roomlist .empty{color:var(--muted)}
+.aroom{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.aroom .nm{overflow-wrap:anywhere;font-weight:600;min-width:0}
+
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes drift{to{transform:translateY(-125vh) rotate(var(--rot,0deg))}}
+@keyframes wob{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(5deg) translateY(-3px)}}
+@keyframes flipLoop{0%,18%{transform:rotateY(0)}32%,82%{transform:rotateY(180deg)}94%,100%{transform:rotateY(0)}}
+@keyframes pop{0%{transform:scale(1)}45%{transform:scale(1.14)}100%{transform:scale(1)}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+@keyframes flash{0%{background:var(--good-bg);transform:scale(1.03)}100%{background:var(--surface);transform:scale(1)}}
+@keyframes qin{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}
+@keyframes pulse{from{opacity:.55}to{opacity:1}}
+@keyframes zoom{0%{transform:scale(.4);opacity:0}25%{transform:scale(1.1);opacity:1}80%{transform:scale(1);opacity:1}100%{transform:scale(1.25);opacity:0}}
+@keyframes floatUp{from{opacity:1;transform:translate(-50%,-50%)}to{opacity:0;transform:translate(-50%,-190%)}}
+@keyframes starIn{from{opacity:0;transform:scale(.2) rotate(-60deg)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition:none!important;animation:none!important}
+  .mini .inner{transform:rotateY(180deg)}
+}
+</style>
+</head>
+<body>
+
+<div class="bg" id="bg" aria-hidden="true"></div>
+<canvas id="fx" aria-hidden="true"></canvas>
+<div class="tools">
+  <button class="pill" id="btn-music" type="button" aria-pressed="true">เพลง: เปิด</button>
+  <button class="pill" id="btn-sound" type="button" aria-pressed="true">เสียง: เปิด</button>
+</div>
+<div class="count" id="count" hidden aria-live="assertive"></div>
+
+<main class="wrap">
+
+<section id="s-start" class="screen">
+  <p class="eyebrow">ห้องเรียนแข่งกัน · 2 ด่าน</p>
+  <h1>เกมเลข<span class="hl">ไว</span></h1>
+  <p class="lead">ใส่ชื่อและห้องของคุณ แล้วแข่งกับเพื่อน ด่าน 1 จับคู่เลขที่เหมือนกัน ด่าน 2 คิดเลขบวกลบ 20 ข้อ ข้อละ 10 วินาที คะแนนรวมเต็ม 350 เรียงอันดับในห้อง</p>
+  <div class="demo" aria-label="ตัวอย่างคู่ที่ถูกต้อง">
+    <div class="mini"><span class="inner"><span class="face back">?</span><span class="face front">5</span></span></div>
+    <span class="eq">=</span>
+    <div class="mini b"><span class="inner"><span class="face back">?</span><span class="face front">5</span></span></div>
+  </div>
+  <form class="panel form" id="join" novalidate>
+    <div class="field">
+      <label for="in-room">ห้อง</label>
+      <input id="in-room" list="rooms" maxlength="16" autocomplete="off" placeholder="เช่น ป.3/1">
+    </div>
+    <div class="field">
+      <label for="in-name">ชื่อของคุณ</label>
+      <input id="in-name" maxlength="20" autocomplete="off" placeholder="เช่น น้องฟ้า">
+      <span class="hint">ชื่อซ้ำกันในห้องเดียวกันจะนับเป็นคนเดียวกัน</span>
+    </div>
+    <p class="err" id="join-err" role="alert"></p>
+    <button class="btn primary" id="btn-start" type="submit">เข้าห้องและเริ่มเล่น</button>
+  </form>
+  <datalist id="rooms"></datalist>
+  <div class="panel">
+    <h2>อันดับในห้อง</h2>
+    <ol class="board" id="start-board"></ol>
+    <p class="hint">เรียงจากคะแนนรวม (คิดเลข + โบนัสจับคู่) อันดับออนไลน์จาก Firebase ล้างอันดับได้เฉพาะแอดมิน</p>
+  </div>
+  <button class="linkbtn" id="btn-admin" type="button">สำหรับแอดมิน</button>
+</section>
+
+<section id="s-admin" class="screen" hidden>
+  <p class="eyebrow">แอดมิน</p>
+  <h2 id="ad-title">เข้าสู่ระบบแอดมิน</h2>
+  <form class="panel form" id="ad-form" novalidate>
+    <p class="lead" id="ad-lead"></p>
+    <div class="field">
+      <label for="ad-pin">รหัสแอดมิน</label>
+      <input id="ad-pin" type="password" maxlength="30" autocomplete="off">
+    </div>
+    <div class="field" id="ad-confirm-wrap" hidden>
+      <label for="ad-pin2">ยืนยันรหัสอีกครั้ง</label>
+      <input id="ad-pin2" type="password" maxlength="30" autocomplete="off">
+    </div>
+    <p class="err" id="ad-err" role="alert"></p>
+    <button class="btn primary" id="ad-submit" type="submit">เข้าสู่ระบบ</button>
+  </form>
+  <div class="panel" id="ad-panel" hidden>
+    <ul class="roomlist" id="ad-rooms"></ul>
+    <div class="actions">
+      <button class="btn ghost" id="ad-clear-all" type="button" hidden>ล้างทุกห้อง</button>
+      <button class="btn ghost" id="ad-change" type="button">เปลี่ยนรหัสแอดมิน</button>
+    </div>
+    <p class="hint">แอดมินต้องลงชื่อเข้าใช้ด้วยบัญชี Google ที่กำหนดไว้</p>
+  </div>
+  <div class="actions">
+    <button class="btn ghost" id="ad-back" type="button">กลับหน้าเล่นเกม</button>
+  </div>
+</section>
+
+<section id="s-match" class="screen" hidden>
+  <p class="who"></p>
+  <div class="hud">
+    <h2>ด่าน 1 · จับคู่เลข</h2>
+    <div class="stat"><span>เปิด <b id="m-moves">0</b> ครั้ง</span><span>เวลา <b id="m-time">0:00</b></span></div>
+  </div>
+  <div class="dots" id="m-dots" role="img" aria-label="จำนวนคู่ที่จับได้แล้ว"></div>
+  <div class="grid" id="grid"></div>
+  <div class="panel" id="match-done" hidden>
+    <h2>จับคู่ครบแล้ว</h2>
+    <p id="match-sum" class="lead"></p>
+    <button class="btn sun" id="btn-to-math" type="button">ไปด่านคิดเลข</button>
+  </div>
+</section>
+
+<section id="s-math" class="screen" hidden>
+  <p class="who"></p>
+  <div class="hud">
+    <h2>ด่าน 2 · คิดเลขไว</h2>
+    <div class="stat"><span>คะแนน <b id="g-score">0</b></span><span id="streak-wrap">ถูกติดกัน <b id="g-streak">0</b></span></div>
+  </div>
+  <div class="qrow"><span>ข้อ <b id="q-no">1/20</b></span><span>เหลือ <b id="q-sec">10</b> วินาที</span></div>
+  <div class="timer" id="timer"><div id="bar"></div></div>
+  <div class="ticks" id="ticks" aria-hidden="true"></div>
+  <div class="question" id="q-text" aria-live="polite">1 + 1 = ?</div>
+  <div class="choices" id="choices"></div>
+  <p class="fb" id="fb"></p>
+</section>
+
+<section id="s-result" class="screen" hidden>
+  <p class="eyebrow">สรุปผล</p>
+  <p class="who"></p>
+  <div class="stars" id="r-stars" aria-hidden="true"></div>
+  <div class="big"><span id="r-correct">0</span><span style="font-size:1.4rem;color:var(--muted)"> / 20 ข้อ</span></div>
+  <p class="lead" id="r-msg"></p>
+  <p class="rank" id="r-rank"></p>
+  <div class="panel">
+    <h2>อันดับในห้อง</h2>
+    <ol class="board" id="r-board"></ol>
+  </div>
+  <dl class="rows panel" id="r-rows"></dl>
+  <div class="actions">
+    <button class="btn primary" id="btn-again" type="button">เล่นอีกรอบ</button>
+    <button class="btn ghost" id="btn-next" type="button">ผู้เล่นคนถัดไป</button>
+  </div>
+</section>
+
+</main>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig = {
+ apiKey: "AIzaSyBY2tulKokyPi8nIUl3Ml1XEHs8dHZUJEU",
+ authDomain: "lekwai-game.firebaseapp.com",
+ projectId: "lekwai-game",
+ storageBucket: "lekwai-game.firebasestorage.app",
+ messagingSenderId: "240999044653",
+ appId: "1:240999044653:web:e1085abf986d801a298aa4",
+ measurementId: "G-XXN4KQCB5F"
+};
+firebase.initializeApp(firebaseConfig);
+window.lekwaiFirebase={auth:firebase.auth(),db:firebase.firestore()};
+</script>
+<script>
+(function(){
+  var $ = function(s){ return document.querySelector(s); };
+  var TOTAL = 20, LIMIT = 10000;
+  var ROOMS_KEY = 'lekwai-rooms', LAST_KEY = 'lekwai-last', SND_KEY = 'lekwai-sound';
+  var MUS_KEY = 'lekwai-music', ADMIN_KEY = 'lekwai-admin';
+  var REDUCE = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  function rand(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
+  function shuffle(arr){
+    var a = arr.slice();
+    for (var i=a.length-1;i>0;i--){ var j=rand(0,i); var t=a[i]; a[i]=a[j]; a[j]=t; }
+    return a;
+  }
+  function fmt(sec){ return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0'); }
+  function show(id){
+    ['s-start','s-match','s-math','s-result','s-admin'].forEach(function(s){ $('#'+s).hidden = (s!==id); });
+    if (typeof MUS !== 'undefined' && MUS) MUS.bpm = (id === 's-math') ? 128 : 100;
+    window.scrollTo(0,0);
+  }
+  function countTo(el, to, ms){
+    var from = Number(el.textContent) || 0, t0 = performance.now();
+    (function f(t){
+      var k = Math.min(1, (t - t0) / ms);
+      el.textContent = Math.round(from + (to - from) * k);
+      if (k < 1) requestAnimationFrame(f);
+    })(t0);
+  }
+
+  /* ---------- Firebase online leaderboard ---------- */
+  var P = {room:'', name:'', roomKey:'', nameKey:''};
+  var mem = {}, isAdmin = false, authUser = null, db = null, auth = null;
+  var ADMIN_EMAIL = 'phatcharapholmontreewong12@gmail.com';
+  function clean(s,n){return String(s||'').replace(/\s+/g,' ').trim().slice(0,n);}
+  function keyOf(s){return String(s).toLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu,'-').replace(/^-+|-+$/g,'');}
+  function loadRooms(){return mem;}
+  function boardList(label){
+    var room=mem[keyOf(label)]; if(!room||!room.players)return [];
+    return Object.keys(room.players).map(function(k){var p=room.players[k];return {key:k,name:p.name,total:p.total,avg:p.avg,at:p.at};})
+      .sort(function(a,b){return (b.total-a.total)||(a.avg-b.avg)||(a.at-b.at);});
+  }
+  function renderBoard(el,label,limit,meKey){
+    el.innerHTML='';
+    function add(cls,t){var li=document.createElement('li');li.className=cls;li.textContent=t;el.appendChild(li);}
+    if(!clean(label,16)){add('empty','พิมพ์ชื่อห้องเพื่อดูอันดับ');return 0;}
+    var list=boardList(label);
+    if(!list.length){add('empty','ยังไม่มีคะแนนในห้องนี้');return 0;}
+    list.slice(0,limit).forEach(function(p,i){row(p,i+1);});
+    function row(p,n){var li=document.createElement('li');li.className='row'+(p.key===meKey?' me':'')+(n<=3?' top'+n:'');
+      [['rk',n],['nm',p.name],['pt',p.total]].forEach(function(x){var sp=document.createElement('span');sp.className=x[0];sp.textContent=x[1];li.appendChild(sp);});el.appendChild(li);}
+    var mi=list.findIndex(function(p){return p.key===meKey;});if(mi>=limit){add('gap','…');row(list[mi],mi+1);}return list.length;
+  }
+  function fillRooms(){var dl=$('#rooms');dl.innerHTML='';Object.keys(mem).forEach(function(k){var o=document.createElement('option');o.value=mem[k].label;dl.appendChild(o);});}
+  function updateStart(){renderBoard($('#start-board'),clean($('#in-room').value,16),5,'');}
+  function goStart(next){fillRooms();if(next)$('#in-name').value='';$('#join-err').textContent='';show('s-start');updateStart();$('#in-name').focus();}
+  $('#in-room').addEventListener('input',updateStart);
+  function syncSnapshot(snap){mem={};snap.forEach(function(doc){var v=doc.data(),r=mem[v.roomKey]||(mem[v.roomKey]={label:v.room,players:{}});
+    var k=keyOf(v.name),old=r.players[k];if(!old||v.total>old.total||(v.total===old.total&&v.avg<old.avg))r.players[k]=v;});
+    fillRooms();updateStart();if(!$('#s-result').hidden){renderBoard($('#r-board'),P.room,10,P.nameKey);}
+    if(isAdmin)renderAdminRooms();}
+  function showError(e){console.error(e);$('#join-err').textContent='เชื่อมต่อ Firebase ไม่สำเร็จ: '+(e.code||e.message||e);}
+  window.addEventListener('firebase-ready',function(){
+    auth=window.lekwaiFirebase.auth;db=window.lekwaiFirebase.db;
+    auth.onAuthStateChanged(function(u){authUser=u;isAdmin=!!(u&&!u.isAnonymous&&u.email===ADMIN_EMAIL&&u.emailVerified);
+      if(!$('#s-admin').hidden)adminView(isAdmin?'panel':'login');
+      if(!u){auth.signInAnonymously().catch(showError);}
+    });
+    db.collection('scores').onSnapshot(syncSnapshot,showError);
+  });
+  function submitScore(entry){
+    var room=mem[P.roomKey]||(mem[P.roomKey]={label:P.room,players:{}});
+    var old=room.players[P.nameKey],better=!old||entry.total>old.total||(entry.total===old.total&&entry.avg<old.avg);
+    if(better)room.players[P.nameKey]=entry;
+    if(!authUser||!db){showError(new Error('ยังไม่ได้เชื่อมต่อ Firebase'));return {best:room.players[P.nameKey],improved:false};}
+    // One score document per authenticated identity and room. Rules prevent writes to other identities.
+    var id=P.roomKey+'_'+authUser.uid;
+    db.collection('scores').doc(id).get().then(function(doc){
+      var prev=doc.exists?doc.data():null;
+      if(!prev||entry.total>prev.total||(entry.total===prev.total&&entry.avg<prev.avg)){
+        return db.collection('scores').doc(id).set(Object.assign({},entry,{room:P.room,roomKey:P.roomKey,uid:authUser.uid}));
+      }
+    }).catch(showError);
+    return {best:room.players[P.nameKey],improved:better&&!!old};
+  }
+  function renderAdminRooms(){var ul=$('#ad-rooms');ul.innerHTML='';var keys=Object.keys(mem);
+    if(!keys.length){var e=document.createElement('li');e.className='empty';e.textContent='ยังไม่มีห้องที่มีคะแนน';ul.appendChild(e);}
+    keys.forEach(function(k){var li=document.createElement('li');li.className='aroom';var nm=document.createElement('span');nm.className='nm';nm.textContent=mem[k].label;
+      var b=document.createElement('button');b.type='button';b.className='btn ghost small';b.textContent='ล้างห้องนี้';b.onclick=function(){if(!confirm('ยืนยันล้างอันดับห้อง '+mem[k].label+'?'))return;deleteRoom(k);};li.append(nm,b);ul.appendChild(li);});
+    $('#ad-clear-all').hidden=!keys.length;
+  }
+  async function deleteRoom(k){if(!isAdmin)return;try{var snap=await db.collection('scores').where('roomKey','==',k).get();
+    for(var i=0;i<snap.docs.length;i+=400){var batch=db.batch();snap.docs.slice(i,i+400).forEach(function(d){batch.delete(d.ref);});await batch.commit();}}
+    catch(e){alert('ลบไม่สำเร็จ: '+e.message);}}
+  function adminView(mode){$('#ad-form').hidden=true;$('#ad-panel').hidden=mode!=='panel';$('#ad-title').textContent=mode==='panel'?'จัดการอันดับ':'เข้าสู่ระบบแอดมิน';
+    $('#ad-lead').textContent='ลงชื่อเข้าใช้ด้วย Google ที่ได้รับอนุญาต';$('#ad-submit').textContent='เข้าสู่ระบบด้วย Google';
+    $('#ad-form').hidden=mode==='panel';$('#ad-pin').parentElement.hidden=true;$('#ad-confirm-wrap').hidden=true;
+    $('#ad-change').hidden=true;if(mode==='panel')renderAdminRooms();show('s-admin');}
+  $('#btn-admin').onclick=function(){adminView(isAdmin?'panel':'login');};
+  $('#ad-form').onsubmit=async function(e){e.preventDefault();try{var provider=new firebase.auth.GoogleAuthProvider();
+    await auth.signInWithPopup(provider);if(!isAdmin){await auth.signOut();$('#ad-err').textContent='บัญชีนี้ไม่มีสิทธิ์แอดมิน';}}
+    catch(err){$('#ad-err').textContent=err.message;}};
+  $('#ad-back').onclick=function(){goStart(false);};
+  $('#ad-clear-all').onclick=function(){if(!isAdmin||!confirm('ยืนยันล้างคะแนนทุกห้อง?'))return;Object.keys(mem).forEach(deleteRoom);};
+  $('#join').addEventListener('submit',function(e){e.preventDefault();var room=clean($('#in-room').value,16),name=clean($('#in-name').value,20),err=$('#join-err');
+    if(!room||!keyOf(room)){err.textContent='พิมพ์ชื่อห้องก่อน';return;}
+    if(!name||!keyOf(name)){err.textContent='พิมพ์ชื่อก่อน';return;}
+    if(!authUser||!db){err.textContent='กรุณารอเชื่อมต่อ Firebase';return;}
+    err.textContent='';P={room:room,name:name,roomKey:keyOf(room),nameKey:keyOf(name)};
+    try{localStorage.setItem(LAST_KEY,JSON.stringify({room:room,name:name}));}catch(ex){}
+    document.querySelectorAll('.who').forEach(function(el){el.textContent='ห้อง '+room+' · '+name;});audio();musicStart();startMatch();
+  });
+  (function(){var last=null;try{last=JSON.parse(localStorage.getItem(LAST_KEY));}catch(e){}
+    if(last){$('#in-room').value=last.room||'';$('#in-name').value=last.name||'';}updateStart();})();
+
+  /* ---------- backdrop of drifting numerals ---------- */
+  (function(){
+    var bg = $('#bg'), chars = '0123456789+−=';
+    for (var i=0;i<22;i++){
+      var s = document.createElement('span');
+      s.textContent = chars.charAt(rand(0, chars.length-1));
+      if (i % 4 === 0) s.className = 'alt';
+      s.style.left = rand(0,96) + '%';
+      s.style.fontSize = rand(28,84) + 'px';
+      s.style.animationDuration = rand(18,40) + 's';
+      s.style.animationDelay = '-' + rand(0,40) + 's';
+      s.style.setProperty('--rot', rand(-40,40) + 'deg');
+      bg.appendChild(s);
+    }
+  })();
+
+  /* ---------- sound (Web Audio, starts after the first tap) ---------- */
+  var AC = null, soundOn = true;
+  try { soundOn = localStorage.getItem(SND_KEY) !== 'off'; } catch(e){}
+  function syncSoundBtn(){
+    $('#btn-sound').textContent = 'เสียง: ' + (soundOn ? 'เปิด' : 'ปิด');
+    $('#btn-sound').setAttribute('aria-pressed', soundOn ? 'true' : 'false');
+  }
+  syncSoundBtn();
+  function audio(){
+    if (!AC){
+      var C = window.AudioContext || window.webkitAudioContext;
+      if (C) { try { AC = new C(); } catch(e){ AC = null; } }
+    }
+    if (AC && AC.state === 'suspended') { try { AC.resume(); } catch(e){} }
+    return AC;
+  }
+  function beep(freq, dur, delay, type, vol){
+    if (!soundOn) return;
+    var ac = audio(); if (!ac) return;
+    var t = ac.currentTime + (delay || 0);
+    var o = ac.createOscillator(), g = ac.createGain();
+    o.type = type || 'sine'; o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol || 0.15, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(ac.destination);
+    o.start(t); o.stop(t + dur + 0.02);
+  }
+  var SFX = {
+    flip:  function(){ beep(520, .08, 0, 'triangle', .1); },
+    match: function(){ beep(660, .12); beep(880, .18, .1); },
+    miss:  function(){ beep(200, .2, 0, 'sawtooth', .07); },
+    good:  function(){ beep(784, .1); beep(1047, .16, .09); },
+    bad:   function(){ beep(220, .25, 0, 'square', .06); },
+    tick:  function(){ beep(900, .06, 0, 'square', .05); },
+    go:    function(){ beep(1200, .25); },
+    win:   function(){ [523,659,784,1047].forEach(function(f,i){ beep(f, .22, i*.12); }); }
+  };
+  $('#btn-sound').addEventListener('click', function(){
+    soundOn = !soundOn;
+    try { localStorage.setItem(SND_KEY, soundOn ? 'on' : 'off'); } catch(e){}
+    syncSoundBtn();
+    if (soundOn) SFX.tick();
+  });
+
+  /* ---------- background music: an original loop synthesized in the browser ---------- */
+  var musicOn = true;
+  try { musicOn = localStorage.getItem(MUS_KEY) !== 'off'; } catch(e){}
+  function syncMusicBtn(){
+    $('#btn-music').textContent = 'เพลง: ' + (musicOn ? 'เปิด' : 'ปิด');
+    $('#btn-music').setAttribute('aria-pressed', musicOn ? 'true' : 'false');
+  }
+  syncMusicBtn();
+  var MUS = {on:false, timer:0, step:0, next:0, bpm:100, gain:null, noise:null};
+  var ROOTS = [48,45,41,43,48,45,41,43];
+  var BASS = [0,null,0,null,7,null,0,null];
+  var MEL = [
+    [72,76,79,76,74,76,72,null],
+    [69,72,76,72,71,72,69,null],
+    [72,69,72,77,76,74,72,null],
+    [71,74,79,74,77,74,71,67],
+    [79,76,72,76,79,81,79,null],
+    [76,72,69,72,76,79,76,null],
+    [77,76,74,72,74,76,77,null],
+    [74,71,67,71,74,79,74,null]
+  ];
+  function mtof(n){ return 440 * Math.pow(2, (n - 69) / 12); }
+  function mnote(freq, t, dur, type, vol){
+    var o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(MUS.gain);
+    o.start(t); o.stop(t + dur + 0.02);
+  }
+  function kick(t){
+    var o = AC.createOscillator(), g = AC.createGain();
+    o.frequency.setValueAtTime(150, t);
+    o.frequency.exponentialRampToValueAtTime(45, t + 0.12);
+    g.gain.setValueAtTime(0.35, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+    o.connect(g); g.connect(MUS.gain);
+    o.start(t); o.stop(t + 0.2);
+  }
+  function hat(t){
+    if (!MUS.noise){
+      var len = Math.floor(AC.sampleRate * 0.1), buf = AC.createBuffer(1, len, AC.sampleRate), d = buf.getChannelData(0);
+      for (var i=0;i<len;i++) d[i] = Math.random() * 2 - 1;
+      MUS.noise = buf;
+    }
+    var s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
+    s.buffer = MUS.noise; f.type = 'highpass'; f.frequency.value = 7000;
+    g.gain.setValueAtTime(0.06, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+    s.connect(f); f.connect(g); g.connect(MUS.gain);
+    s.start(t); s.stop(t + 0.08);
+  }
+  function playStep(i, t){
+    var bar = Math.floor(i / 8), s = i % 8;
+    var b = BASS[s];
+    if (b !== null) mnote(mtof(ROOTS[bar] + b), t, 0.28, 'triangle', 0.3);
+    var m = MEL[bar][s];
+    if (m) mnote(mtof(m), t, 0.2, 'square', 0.07);
+    if (s === 0 || s === 4) kick(t);
+    if (s % 2 === 1) hat(t);
+  }
+  function musicTick(){
+    if (!AC) return;
+    if (MUS.next < AC.currentTime - 0.1) MUS.next = AC.currentTime + 0.05;
+    while (MUS.next < AC.currentTime + 0.3){
+      playStep(MUS.step, MUS.next);
+      MUS.next += 60 / MUS.bpm / 2;
+      MUS.step = (MUS.step + 1) % 64;
+    }
+  }
+  function musicStart(){
+    if (!musicOn || MUS.on) return;
+    var ac = audio(); if (!ac) return;
+    if (!MUS.gain){ MUS.gain = ac.createGain(); MUS.gain.gain.value = 0.45; MUS.gain.connect(ac.destination); }
+    MUS.on = true; MUS.step = 0; MUS.next = ac.currentTime + 0.08;
+    MUS.timer = setInterval(musicTick, 80);
+  }
+  function musicStop(){ MUS.on = false; clearInterval(MUS.timer); }
+  $('#btn-music').addEventListener('click', function(){
+    musicOn = !musicOn;
+    try { localStorage.setItem(MUS_KEY, musicOn ? 'on' : 'off'); } catch(e){}
+    syncMusicBtn();
+    if (musicOn) musicStart(); else musicStop();
+  });
+  document.addEventListener('visibilitychange', function(){
+    if (!AC) return;
+    try { if (document.hidden) AC.suspend(); else AC.resume(); } catch(e){}
+  });
+
+  /* ---------- confetti + floating text ---------- */
+  var cv = $('#fx'), cx = cv.getContext('2d'), parts = [], raf = 0;
+  function fit(){ cv.width = window.innerWidth; cv.height = window.innerHeight; }
+  fit(); window.addEventListener('resize', fit);
+  function palette(){
+    var st = getComputedStyle(document.documentElement);
+    return ['--accent','--sun','--good','--thai','--bad'].map(function(k){ return st.getPropertyValue(k).trim() || '#2457F5'; });
+  }
+  function burst(x, y, n, power){
+    if (REDUCE) return;
+    var cols = palette();
+    for (var i=0;i<n;i++){
+      var a = Math.random()*Math.PI*2, s = 2 + Math.random()*(power || 6);
+      parts.push({x:x, y:y, vx:Math.cos(a)*s, vy:Math.sin(a)*s - 3, w:5+Math.random()*5, h:3+Math.random()*4,
+        r:Math.random()*6, vr:(Math.random()-.5)*.4, c:cols[rand(0,cols.length-1)], life:60+rand(0,30)});
+    }
+    run();
+  }
+  function rain(){
+    if (REDUCE) return;
+    var cols = palette();
+    for (var i=0;i<130;i++){
+      parts.push({x:Math.random()*cv.width, y:-20-Math.random()*240, vx:(Math.random()-.5)*2, vy:1.5+Math.random()*3,
+        w:6+Math.random()*5, h:4+Math.random()*5, r:Math.random()*6, vr:(Math.random()-.5)*.3,
+        c:cols[rand(0,cols.length-1)], life:240+rand(0,60)});
+    }
+    run();
+  }
+  function run(){ if (!raf) raf = requestAnimationFrame(step); }
+  function step(){
+    raf = 0;
+    cx.clearRect(0, 0, cv.width, cv.height);
+    parts = parts.filter(function(p){ return p.life > 0 && p.y < cv.height + 30; });
+    parts.forEach(function(p){
+      p.vy += .15; p.vx *= .99; p.x += p.vx; p.y += p.vy; p.r += p.vr; p.life--;
+      cx.save(); cx.translate(p.x, p.y); cx.rotate(p.r);
+      cx.fillStyle = p.c; cx.globalAlpha = Math.min(1, p.life/20);
+      cx.fillRect(-p.w/2, -p.h/2, p.w, p.h); cx.restore();
+    });
+    if (parts.length) raf = requestAnimationFrame(step);
+  }
+  function popup(text, x, y, cls){
+    var s = document.createElement('span');
+    s.className = 'popup ' + (cls || '');
+    s.textContent = text; s.style.left = x + 'px'; s.style.top = y + 'px';
+    document.body.appendChild(s);
+    setTimeout(function(){ if (s.parentNode) s.parentNode.removeChild(s); }, 1000);
+  }
+  function center(el){
+    var r = el.getBoundingClientRect();
+    return {x: r.left + r.width/2, y: r.top + r.height/2, r: r};
+  }
+
+  /* ---------- Stage 1: match ---------- */
+  var M = {timer:null, result:null};
+
+  function startMatch(){
+    clearInterval(M.timer);
+    var nums = shuffle([0,1,2,3,4,5,6,7,8,9]).slice(0,8);
+    var deck = [];
+    nums.forEach(function(n){ deck.push(n); deck.push(n); });
+    deck = shuffle(deck);
+    var grid = $('#grid');
+    grid.innerHTML = '';
+    deck.forEach(function(n,i){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'card';
+      b.dataset.n = n;
+      b.setAttribute('aria-label','การ์ดใบที่ '+(i+1));
+      b.innerHTML = '<span class="inner"><span class="face back">?</span><span class="face front">' + n + '</span></span>';
+      b.addEventListener('click', function(){ flip(b); });
+      grid.appendChild(b);
+    });
+    var dots = $('#m-dots');
+    dots.innerHTML = '';
+    for (var d=0; d<8; d++) dots.appendChild(document.createElement('span'));
+    M = {first:null, lock:false, moves:0, found:0, sec:0, result:null, timer:null};
+    M.timer = setInterval(function(){ M.sec++; $('#m-time').textContent = fmt(M.sec); }, 1000);
+    $('#m-moves').textContent = '0';
+    $('#m-time').textContent = '0:00';
+    $('#match-done').hidden = true;
+    show('s-match');
+  }
+
+  function flip(b){
+    if (M.lock || b.classList.contains('open')) return;
+    SFX.flip();
+    b.classList.add('open');
+    if (!M.first){ M.first = b; return; }
+    var a = M.first; M.first = null;
+    M.moves++;
+    $('#m-moves').textContent = M.moves;
+    if (a.dataset.n === b.dataset.n){
+      a.classList.add('done'); b.classList.add('done');
+      M.found++;
+      $('#m-dots').children[M.found-1].classList.add('on');
+      SFX.match();
+      var c = center(b);
+      burst(c.x, c.y, 22, 5);
+      popup('คู่ที่ ' + M.found + '/8', c.x, c.r.top, 'good');
+      if (M.found === 8){
+        clearInterval(M.timer);
+        M.result = {moves:M.moves, sec:M.sec};
+        $('#match-sum').textContent = 'เปิดการ์ด ' + M.moves + ' ครั้ง ใช้เวลา ' + fmt(M.sec);
+        $('#match-done').hidden = false;
+        setTimeout(function(){
+          SFX.win(); rain();
+          $('#match-done').scrollIntoView({behavior: REDUCE ? 'auto' : 'smooth', block:'center'});
+        }, 450);
+      }
+    } else {
+      M.lock = true;
+      setTimeout(function(){ SFX.miss(); a.classList.add('shake'); b.classList.add('shake'); }, 380);
+      setTimeout(function(){
+        a.classList.remove('open','shake'); b.classList.remove('open','shake'); M.lock = false;
+      }, 900);
+    }
+  }
+
+  /* ---------- Stage 2: speed math ---------- */
+  var G = null;
+
+  function makeQ(i){
+    var max = i < 8 ? 10 : (i < 14 ? 20 : 30);
+    var op = Math.random() < 0.5 ? '+' : '−';
+    var a, b, ans;
+    if (op === '+'){
+      a = rand(1, max-1); b = rand(1, max-a); ans = a + b;
+    } else {
+      a = rand(2, max); b = rand(1, a-1); ans = a - b;
+    }
+    var set = {}; set[ans] = true;
+    var opts = [ans];
+    while (opts.length < 4){
+      var d = ans + rand(-5,5);
+      if (d >= 0 && !set[d]){ set[d] = true; opts.push(d); }
+    }
+    return {a:a, b:b, op:op, ans:ans, opts:shuffle(opts)};
+  }
+
+  function countdown(done){
+    var el = $('#count'), seq = ['3','2','1','ไป!'], i = 0;
+    el.hidden = false;
+    (function next(){
+      if (i >= seq.length){ el.hidden = true; done(); return; }
+      el.innerHTML = '<span>' + seq[i] + '</span>';
+      if (i === 3) SFX.go(); else SFX.tick();
+      i++;
+      setTimeout(next, i === seq.length ? 550 : 750);
+    })();
+  }
+
+  function startMath(){
+    G = {i:0, score:0, correct:0, streak:0, bestStreak:0, timeSum:0, answered:true, timer:null, q:null, t0:0};
+    $('#g-score').textContent = '0';
+    $('#g-streak').textContent = '0';
+    $('#streak-wrap').classList.remove('hot');
+    var ticks = $('#ticks');
+    ticks.innerHTML = '';
+    for (var k=0;k<TOTAL;k++) ticks.appendChild(document.createElement('i'));
+    show('s-math');
+    countdown(nextQ);
+  }
+
+  function nextQ(){
+    if (G.i >= TOTAL){ endGame(); return; }
+    clearInterval(G.timer);
+    var q = makeQ(G.i);
+    G.q = q; G.answered = false; G.t0 = performance.now();
+    var ticks = $('#ticks').children;
+    for (var k=0;k<TOTAL;k++){ if (k === G.i) ticks[k].className = 'cur'; }
+    $('#q-no').textContent = (G.i+1) + '/' + TOTAL;
+    var qe = $('#q-text');
+    qe.classList.remove('good','bad','enter');
+    void qe.offsetWidth;
+    qe.classList.add('enter');
+    qe.textContent = q.a + ' ' + q.op + ' ' + q.b + ' = ?';
+    $('#fb').textContent = ''; $('#fb').className = 'fb';
+    $('#timer').classList.remove('low');
+    $('#bar').style.transform = 'scaleX(1)';
+    $('#q-sec').textContent = LIMIT/1000;
+    var box = $('#choices');
+    box.innerHTML = '';
+    q.opts.forEach(function(v,idx){
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'choice'; b.dataset.v = v;
+      b.innerHTML = '<span class="k">กด ' + (idx+1) + '</span>' + v;
+      b.addEventListener('click', function(){ answer(v); });
+      box.appendChild(b);
+    });
+    G.timer = setInterval(tick, 100);
+  }
+
+  function tick(){
+    var left = Math.max(0, LIMIT - (performance.now() - G.t0));
+    $('#bar').style.transform = 'scaleX(' + (left/LIMIT) + ')';
+    var sec = Math.ceil(left/1000);
+    if ($('#q-sec').textContent !== String(sec)){
+      $('#q-sec').textContent = sec;
+      if (sec <= 3 && sec > 0) SFX.tick();
+    }
+    if (left < 3000) $('#timer').classList.add('low');
+    if (left <= 0) answer(null);
+  }
+
+  function answer(v){
+    if (G.answered) return;
+    G.answered = true;
+    clearInterval(G.timer);
+    var used = Math.min(LIMIT, performance.now() - G.t0);
+    var left = LIMIT - used;
+    var ok = (v === G.q.ans);
+    G.timeSum += used;
+    var qe = $('#q-text');
+    var c = center(qe);
+    qe.classList.remove('enter');
+    void qe.offsetWidth;
+    qe.classList.add(ok ? 'good' : 'bad');
+    if (ok){
+      var gain = 10 + Math.round(5 * left / LIMIT);
+      G.correct++; G.streak++;
+      if (G.streak > G.bestStreak) G.bestStreak = G.streak;
+      G.score += gain;
+      SFX.good();
+      popup('+' + gain, c.x, c.r.top + 6, 'good');
+      if (G.streak >= 3) popup('ติดกัน ×' + G.streak, c.x, c.r.bottom - 6, 'hot');
+      burst(c.x, c.y, 18, 5);
+    } else {
+      G.streak = 0;
+      SFX.bad();
+      popup(v === null ? 'หมดเวลา' : 'ไม่ถูก', c.x, c.r.top + 6, 'bad');
+    }
+    $('#ticks').children[G.i].className = ok ? 'ok' : 'no';
+    document.querySelectorAll('.choice').forEach(function(b){
+      var bv = Number(b.dataset.v);
+      b.disabled = true;
+      if (bv === G.q.ans) b.classList.add('good');
+      else if (v !== null && bv === v) b.classList.add('bad');
+    });
+    var fb = $('#fb');
+    if (ok){ fb.textContent = 'ถูกต้อง'; fb.className = 'fb good'; }
+    else if (v === null){ fb.textContent = 'หมดเวลา คำตอบคือ ' + G.q.ans; fb.className = 'fb bad'; }
+    else { fb.textContent = 'ยังไม่ถูก คำตอบคือ ' + G.q.ans; fb.className = 'fb bad'; }
+    countTo($('#g-score'), G.score, 450);
+    $('#g-streak').textContent = G.streak;
+    $('#streak-wrap').classList.toggle('hot', G.streak >= 3);
+    setTimeout(function(){ G.i++; nextQ(); }, ok ? 700 : 1200);
+  }
+
+  document.addEventListener('keydown', function(e){
+    if ($('#s-math').hidden || !G || G.answered) return;
+    var n = parseInt(e.key, 10);
+    if (n >= 1 && n <= 4){
+      var btns = document.querySelectorAll('.choice');
+      if (btns[n-1]) btns[n-1].click();
+    }
+  });
+
+  /* ---------- Result ---------- */
+  function endGame(){
+    clearInterval(G.timer);
+    var c = G.correct;
+    var stars = c >= 18 ? 3 : (c >= 14 ? 2 : (c >= 8 ? 1 : 0));
+    $('#r-stars').innerHTML = [0,1,2].map(function(i){
+      return '<span class="star ' + (i < stars ? 'on' : 'off') + '" style="animation-delay:' + (0.2 + i*0.25) + 's">★</span>';
+    }).join('');
+    $('#r-correct').textContent = '0';
+    $('#r-msg').textContent = c >= 18 ? 'เก่งมาก คิดเลขไวและแม่นสุดๆ'
+      : c >= 14 ? 'เก่งมาก ลองอีกรอบเพื่อให้ได้เต็ม'
+      : c >= 8 ? 'ทำได้ดี ฝึกอีกนิดจะไวขึ้น'
+      : 'ไม่เป็นไร เล่นอีกรอบ ข้อแรกๆ ง่ายกว่าที่คิด';
+    var bonus = M.result ? Math.max(0, 50 - (M.result.moves - 8) * 2 - Math.floor(M.result.sec / 3)) : 0;
+    var total = G.score + bonus;
+    var res = submitScore({name:P.name, score:G.score, bonus:bonus, total:total, correct:c,
+      avg:Math.round(G.timeSum / TOTAL), at:Date.now()});
+    var rows = [];
+    if (M.result){
+      rows.push(['จับคู่เลข', M.result.moves + ' ครั้ง · ' + fmt(M.result.sec)]);
+      rows.push(['โบนัสจับคู่', bonus + ' / 50']);
+    }
+    rows.push(['คะแนนคิดเลข', G.score + ' / 300']);
+    rows.push(['คะแนนรวมครั้งนี้', total + ' / 350']);
+    rows.push(['ดีที่สุดของคุณในห้อง', res.best.total + (res.improved ? ' (ทำลายสถิติ)' : '')]);
+    rows.push(['เวลาเฉลี่ย', (G.timeSum/TOTAL/1000).toFixed(1) + ' วินาทีต่อข้อ']);
+    rows.push(['ถูกติดกันสูงสุด', G.bestStreak + ' ข้อ']);
+    $('#r-rows').innerHTML = rows.map(function(r){
+      return '<dt>' + r[0] + '</dt><dd>' + r[1] + '</dd>';
+    }).join('');
+    show('s-result');
+    var count = renderBoard($('#r-board'), P.room, 10, P.nameKey);
+    var rank = 0;
+    boardList(P.room).forEach(function(p,i){ if (p.key === P.nameKey) rank = i + 1; });
+    $('#r-rank').textContent = 'อันดับ ' + rank + ' จาก ' + count + ' คน ในห้อง ' + P.room;
+    countTo($('#r-correct'), c, 800);
+    if (stars >= 1) setTimeout(SFX.win, 300);
+    if (stars >= 2) setTimeout(rain, 300);
+    else if (stars === 1) setTimeout(function(){ burst(window.innerWidth/2, window.innerHeight/3, 50, 8); }, 300);
+  }
+
+  $('#btn-to-math').addEventListener('click', startMath);
+  $('#btn-again').addEventListener('click', startMatch);
+  $('#btn-next').addEventListener('click', function(){ goStart(true); });
+})();
+window.dispatchEvent(new Event("firebase-ready"));
+</script>
+</body>
+</html>
